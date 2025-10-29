@@ -1,0 +1,4 @@
+https://gemini.google.com/app/8266f4fb4876dd25
+
+
+sudo docker build -t clip-the-landscape .
