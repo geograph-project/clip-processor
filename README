@@ -1,11 +1,19 @@
-#Docker Port of 
+# Geograph CLIP Processor (including ClipTheLandscape)
+===
+
+Docker Port of 
 https://colab.research.google.com/drive/1yArUW04Q-wZAoEiv6SsjWuf3K0d7yx-c
 
-* This contains a client processor script, it computes the CLIP encodings for batches of Geograph images, and submits them to a central repository. The server provides URLs to presized 224x224px images, the client handles running them though CLIP preprocess/tokenize and the encoding step of the image and title.
+* This contains a client processor script, it computes the CLIP encodings for batches of Geograph images, and 
+submits them to a central repository. The server provides URLs to presized 224x224px images, the client 
+handles running them though CLIP preprocess/tokenize and the encoding step of the image and title.
 
-* This allows the processing to be distributed over many 'clients', so we don't have to compute these encodings ourselves.
+* This allows the processing to be distributed over many 'clients', so we don't have to compute these 
+encodings ourselves.
 
-* At the same time also runs one of ClipTheLandscape models to infer Context Tags, this is just side project as computing the predicted context tags is an experiment to test the model at scale. (as have the CLIP encodings very quick to run them though one of the models)
+* At the same time also runs one of ClipTheLandscape models to infer Context Tags, this is just side project 
+as computing the predicted context tags is an experiment to test the model at scale. (as have the CLIP 
+encodings very quick to run them though one of the models)
 
 For background on the ClipTheLandscape project, see
 https://github.com/SpaceTimeLab/ClipTheLandscape/
@@ -17,7 +25,8 @@ https://gemini.google.com/app/8266f4fb4876dd25
     sudo docker build -t clip-processor .
 
 
-* The final image is published: https://hub.docker.com/r/geograph/clip-processor that container will run one invokation of this script, also 100 loops.
+* The final image is published: https://hub.docker.com/r/geograph/clip-processor that container will run one 
+invokation of this script, also 100 loops.
 
 More information on running the client: 
    https://staging.data.geograph.org.uk/facets/clipprocessor.html
