@@ -10,16 +10,14 @@ Original file is located at
 import sys
 
 # Geograph expects the encoded embeddings in little endian format. If using a diffente system please contact us about how to provide data
-assert(sys.byteorder == 'little')
+assert(sys.byteorder == 'little') # noqa: E402
 
-import pandas as pd
 import os
 import torch
 import clip
 import requests
 import time
 
-import json
 from PIL import Image
 import base64
 from tqdm import tqdm
@@ -63,26 +61,53 @@ if not os.path.exists('heads/'+head_name):
   with open('heads/'+head_name, 'wb') as f:
     f.write(response.content)
 
-# verify the file was downloaded
-!ls -l heads
+########################################
 
 import hashlib
 import random
+import socket
 
-colab_notebook_id = os.environ.get('COLAB_NOTEBOOK_ID')
-jpy_session_name = os.environ.get('JPY_SESSION_NAME')
-if colab_notebook_id:
-  notebook_hash = hashlib.sha256(colab_notebook_id.encode()).hexdigest()
-  # Convert the hash to an integer and take the modulo 32
-  unique_number = int(notebook_hash, 16) % 32
-  print(f"Unique number based on notebook ID: {unique_number}")
-elif jpy_session_name:
-  notebook_hash = hashlib.sha256(jpy_session_name.encode()).hexdigest()
-  unique_number = int(notebook_hash, 16) % 32
-  print(f"Unique number based on jpy_session: {unique_number}")
-else:
-  unique_number = random.randint(0, 31)
-  print(f"Using a random unique number: {unique_number}")
+def get_instance_identifier():
+    # --- Kubernetes Environment ---
+    pod_uid = os.environ.get('KUBERNETES_POD_UID')
+    if pod_uid:
+        return f"k8s-uid-{pod_uid}"
+
+    pod_name = os.environ.get('KUBERNETES_POD_NAME')
+    if pod_name:
+        return f"k8s-pod-{pod_name}"
+
+    # --- Jupyter/Colab Environment ---
+    colab_notebook_id = os.environ.get('COLAB_NOTEBOOK_ID')
+    if colab_notebook_id:
+        return f"colab-{colab_notebook_id}"
+
+    jpy_session_name = os.environ.get('JPY_SESSION_NAME')
+    if jpy_session_name:
+        return f"jupyter-{jpy_session_name}"
+
+    # --- Docker Environment --- (and in fact will work with Kubernetes, if dont have those variables (ours doesnt!)
+    try:
+        container_hostname = socket.gethostname()
+        # Check if it looks like a typical Docker short ID (12 hex chars) or a name
+        # A name will usually be more descriptive, an ID is 12 hex chars
+        if len(container_hostname) == 12 and all(c in '0123456789abcdef' for c in container_hostname.lower()):
+            return f"docker-id-{container_hostname}"
+        elif container_hostname:
+            return f"docker-name-{container_hostname}"
+    except Exception as e:
+        logging.warning(f"Could not get hostname from socket: {e}")
+
+    # --- Fallback: Random Identifier ---
+    random_id = ''.join(random.choices('0123456789abcdef', k=16))
+    return f"random-{random_id}"
+
+hashed_identifier = hashlib.sha256(get_instance_identifier().encode()).hexdigest()
+unique_number = int(hashed_identifier, 16) % 32
+
+print(f"Using stable unique number: {unique_number}")
+
+########################################
 
 print(device)
 print(clip.available_models())
@@ -138,7 +163,8 @@ def post_with_retries(url, json_data, attempts=3, delay=2):
             return res
         except requests.exceptions.RequestException as e:
             print(f"Attempt {i} failed: {e}. Retrying...") if i < attempts else print(f"Attempt {i} failed: {e}. Max retries reached.")
-            if i < attempts: time.sleep(delay)
+            if i < attempts:
+                time.sleep(delay)
     raise requests.exceptions.RequestException(f"Failed after {attempts} attempts.") # Re-raise if all fail
 
 os.makedirs(image_dir, exist_ok=True)
@@ -147,15 +173,46 @@ os.makedirs(image_dir, exist_ok=True)
 logging.basicConfig(filename=log_file, level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-for loop in range(100):
+def get_env_int(name, default, warn=True):
+    value_str = os.environ.get(name)
+    if value_str is None:
+        return default
+
+    try:
+        return int(value_str)
+    except ValueError:
+        if warn:
+            print(f"Warning: '{name}' environment variable '{value_str}' is not a valid integer. Using default value of {default}.")
+        return default
+
+loops = get_env_int('LOOPS', 100)
+batch = get_env_int('BATCH', 250)
+
+for loop in range(loops):
     ##############################
     # Fetch Data
 
+    params = {
+        "limit": batch, #defines the largest you want, might get smaller batches.
+        "unique_number": unique_number
+    }
+
     logging.info(f'Starting Loop #{loop}')
     try:
-        response = requests.get(fetch_url + "&limit=200&unique_number="+str(unique_number))
+        response = requests.get(fetch_url, params=params)
         response.raise_for_status()
         data_json = response.json() #has built in json decoder
+
+        if not data_json or 'rows' not in data_json or not data_json['rows']:
+            logging.warning("No rows returned from the server. Waiting before retrying.")
+            print("No rows returned from the server. Waiting before retrying.")
+            if "sleep" in data_json:
+                sleep = data_json['sleep']
+            else:
+                sleep = sleep * 2 # implement expentional backoff!
+            time.sleep(sleep)
+            continue
+
         logging.info(f"Fetched data for {len(data_json['rows'])} Images, first ID: {data_json['rows'][0]['gridimage_id']}")
         print(f"Fetched data for {len(data_json['rows'])} Images, first ID: {data_json['rows'][0]['gridimage_id']}")
 

@@ -1,0 +1,14 @@
+# Python version (often implicitly handled by base Docker image, but good to note)
+# python==3.11.5
+
+# Conda-forge packages (now installed via pip if available)
+pandas==2.2.2
+
+# Pip packages
+requests
+torch==2.3.0
+ftfy
+regex
+tqdm==4.66.2
+CLIP @ git+https://github.com/openai/CLIP.git
+Pillow==10.1.0
