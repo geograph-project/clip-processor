@@ -41,6 +41,7 @@ fetch_url = "https://www.geograph.org.uk/_scripts/labeler.json.php?model=clip"  
 # This is the model that decided to use:
 head_name = "mlp-img-txt-mixup.pth"
 head_model_url = "https://github.com/SpaceTimeLab/ClipTheLandscape/raw/refs/heads/main/heads/mlp-img-txt-mixup.pth"
+head_model_url = "https://github.com/SpaceTimeLab/ClipTheLandscape/raw/ede94a763a0db090daa1c6faad266c3fb7069cc6/heads/mlp-img-txt-mixup.pth"
 
 # these are hardcoded, beucase need to match the data the model was trained on
 clip_model = "ViT-B/32"
